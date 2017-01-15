@@ -1,0 +1,51 @@
+#!/bin/sh
+ROOT=$(cd .. && pwd)
+KMEANS=$ROOT/k_means
+DATA=$ROOT/data
+TEST=$(pwd)
+
+INPUT1=$DATA/example1_k2_m10.txt
+INPUT2=$DATA/example2_k3_m30.txt
+INPUT3=$DATA/example3_k5_m500.txt
+
+OUTPUT=$TEST/output
+OUTPUT1=$OUTPUT/output1
+OUTPUT2=$OUTPUT/output2
+OUTPUT3=$OUTPUT/output3
+
+CORRECT=$TEST/correct
+CORRECT1=$CORRECT/test1
+CORRECT2=$CORRECT/test2
+CORRECT3=$CORRECT/test3
+
+cd $ROOT
+make
+
+$KMEANS -f $INPUT1 -k 2 -i 100 | tail -n +2 > $OUTPUT1
+$KMEANS -f $INPUT2 -k 3 -i 100 | tail -n +2 > $OUTPUT2
+$KMEANS -f $INPUT3 -k 5 -i 100 | tail -n +2 > $OUTPUT3
+
+RESULT=$(diff $OUTPUT1 $CORRECT1)
+if [ -z "$RESULT" ]
+then
+    echo 'TEST1 PASSED'
+else
+    echo $RESULT
+fi
+
+RESULT=$(diff $OUTPUT2 $CORRECT2)
+if [ -z "$RESULT" ]
+then
+    echo 'TEST2 PASSED'
+else
+    echo $RESULT
+fi
+
+RESULT=$(diff $OUTPUT3 $CORRECT3)
+if [ -z "$RESULT" ]
+then
+    echo 'TEST3 PASSED'
+else
+    echo $RESULT
+fi
+

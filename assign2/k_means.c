@@ -8,12 +8,11 @@
  *     Wei Wang <wei.wang@utsa.edu>
  */
 #include <stdio.h>
-#include <float.h>
 #include <math.h>
 
 #include "k_means.h"
 
-float distance(const struct point p, const struct point u) {
+double distance(const struct point p, const struct point u) {
     return sqrt(pow(p.x - u.x, 2) + pow(p.y - u.y, 2));
 }
 
@@ -43,7 +42,7 @@ void k_means(struct point p[MAX_POINTS],
     int c_point; /* counter for the current point */
     int j; /* counter for random generator loop */
     int cluster_size[k]; /* the size of each cluster */
-    float min_dist; /* current minimum distance */
+    double min_dist; /* current minimum distance */
     struct point cluster_sum[k]; /* the sum of each point distance in a cluster */
 
     /* randomly initialized the centers */
@@ -73,7 +72,7 @@ void k_means(struct point p[MAX_POINTS],
 
             /* find the cluster that the point belongs to */
             for (c_cluster = 1; c_cluster < k; c_cluster++) {
-                float dist = distance(p[c_point], u[c_cluster]);
+                double dist = distance(p[c_point], u[c_cluster]);
                 if (dist < min_dist) {
                     /* Set the new minimum distance and assign the point to the
                        current cluster */
@@ -99,8 +98,8 @@ void k_means(struct point p[MAX_POINTS],
 
             /* set the cluster center or generate a new one if no points */
             if (cluster_size[c_cluster] > 0) {
-                center->x = sum->x / size;
-                center->y = sum->y / size;
+                center->x = sum->x / (double) size;
+                center->y = sum->y / (double) size;
             } else {
                 u[c_cluster] = random_center();
             }

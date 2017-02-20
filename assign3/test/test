@@ -17,10 +17,10 @@ cd $ROOT
 make
 
 $KMEANS -f $INPUT1 -k 2 -i 100 | tail -n +2 > "$OUTPUT/output1"
-$KMEANS -f $INPUT2 -k 3 -i 100 | tail -n +2 > "$OUTPUT/output2"
-$KMEANS -f $INPUT3 -k 5 -i 100 | tail -n +2 > "$OUTPUT/output3"
-$KMEANS -f $INPUT4 -k 8 -i 10000 | tail -n +2 > "$OUTPUT/output4"
-$KMEANS -f $INPUT5 -k 10 -i 10000 | tail -n +2 > "$OUTPUT/output5"
+# $KMEANS -f $INPUT2 -k 3 -i 100 | tail -n +2 > "$OUTPUT/output2"
+# $KMEANS -f $INPUT3 -k 5 -i 100 | tail -n +2 > "$OUTPUT/output3"
+# $KMEANS -f $INPUT4 -k 8 -i 10000 | tail -n +2 > "$OUTPUT/output4"
+# $KMEANS -f $INPUT5 -k 10 -i 10000 | tail -n +2 > "$OUTPUT/output5"
 
 test() {
     CASE=$1
@@ -39,8 +39,8 @@ test() {
 }
 
 test 1
-test 2
-test 3
-test 4
-test 5
+# test 2
+# test 3
+# test 4
+# test 5
 

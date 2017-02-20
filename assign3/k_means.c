@@ -45,7 +45,7 @@ void k_means(struct point p[MAX_POINTS],
     int c_point;                 /* counter for the current point */
     int j;                       /* counter for random generator loop */
     int cluster_size[k];         /* the size of each cluster */
-    double min_dist;              /* current minimum distance */
+    // double min_dist;              /* current minimum distance */
     struct point cluster_sum[k]; /* the sum of each point distance in a cluster */
 
     /* randomly initialized the centers */
@@ -74,10 +74,11 @@ void k_means(struct point p[MAX_POINTS],
         }
 
         /* find the nearest center to each point */
+        #pragma omp parallel for
         for (c_point = 0; c_point < m; c_point++)
         {
             /* fence post min_dist */
-            min_dist = distance(p[c_point], u[0]);
+            double min_dist = distance(p[c_point], u[0]);
             c[c_point] = 0;
 
             /* find the cluster that the point belongs to */
@@ -95,11 +96,14 @@ void k_means(struct point p[MAX_POINTS],
 
             /* update some information about the cluster that the point was
                assigned to */
-            int cluster = c[c_point];
-            struct point *point = &p[c_point];
-            cluster_size[cluster]++;
-            cluster_sum[cluster].x += point->x;
-            cluster_sum[cluster].y += point->y;
+            #pragma omp critical
+            {
+                int cluster = c[c_point];
+                struct point *point = &p[c_point];
+                cluster_size[cluster]++;
+                cluster_sum[cluster].x += point->x;
+                cluster_sum[cluster].y += point->y;
+            }
         }
 
         /* update the center for each cluster */

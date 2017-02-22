@@ -8,7 +8,6 @@
  *     Wei Wang <wei.wang@utsa.edu>
  */
 #include <stdio.h>
-// #include <float.h>
 #include <math.h>
 #include <omp.h> /* OpenMP header */
 
@@ -16,7 +15,7 @@
 
 double distance(const struct point p, const struct point u)
 {
-    return sqrt(pow(p.x - u.x, 2) + pow(p.y - u.y, 2));
+    return pow(p.x - u.x, 2) + pow(p.y - u.y, 2);
 }
 
 /*

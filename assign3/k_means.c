@@ -74,39 +74,43 @@ void k_means(struct point p[MAX_POINTS],
         }
 
         /* find the nearest center to each point */
-        #pragma omp parallel for
-        for (c_point = 0; c_point < m; c_point++)
+        #pragma omp parallel
         {
-            /* fence post min_dist */
-            double min_dist = distance(p[c_point], u[0]);
-            c[c_point] = 0;
-
-            /* find the cluster that the point belongs to */
-            for (c_cluster = 1; c_cluster < k; c_cluster++)
+            #pragma omp for private(c_cluster)
+            for (c_point = 0; c_point < m; c_point++)
             {
-                double dist = distance(p[c_point], u[c_cluster]);
-                if (dist < min_dist)
+                /* fence post min_dist */
+                double min_dist = distance(p[c_point], u[0]);
+                c[c_point] = 0;
+
+                /* find the cluster that the point belongs to */
+                for (c_cluster = 1; c_cluster < k; c_cluster++)
                 {
-                    /* Set the new minimum distance and assign the point to the
-                       current cluster */
-                    min_dist = dist;
-                    c[c_point] = c_cluster;
+                    double dist = distance(p[c_point], u[c_cluster]);
+                    if (dist < min_dist)
+                    {
+                        /* Set the new minimum distance and assign the point to the
+                        current cluster */
+                        min_dist = dist;
+                        c[c_point] = c_cluster;
+                    }
                 }
-            }
 
-            /* update some information about the cluster that the point was
-               assigned to */
-            #pragma omp critical
-            {
+                /* update some information about the cluster that the point was
+                assigned to */
                 int cluster = c[c_point];
                 struct point *point = &p[c_point];
+                #pragma omp atomic
                 cluster_size[cluster]++;
+                #pragma omp atomic
                 cluster_sum[cluster].x += point->x;
+                #pragma omp atomic
                 cluster_sum[cluster].y += point->y;
             }
         }
 
         /* update the center for each cluster */
+        #pragma omp parallel for
         for (c_cluster = 0; c_cluster < k; c_cluster++)
         {
             struct point *center = &u[c_cluster];

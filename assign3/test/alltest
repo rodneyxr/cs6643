@@ -1,0 +1,2 @@
+#!/bin/bash
+for ((n=0;n<20;n++)); do ./test; done

@@ -16,12 +16,6 @@ CORRECT=$TEST/correct
 cd $ROOT
 make
 
-$KMEANS -f $INPUT1 -k 2 -i 100 | tail -n +2 > "$OUTPUT/output1"
-$KMEANS -f $INPUT2 -k 3 -i 100 | tail -n +2 > "$OUTPUT/output2"
-$KMEANS -f $INPUT3 -k 5 -i 100 | tail -n +2 > "$OUTPUT/output3"
-$KMEANS -f $INPUT4 -k 8 -i 10000 | tail -n +2 > "$OUTPUT/output4"
-$KMEANS -f $INPUT5 -k 10 -i 10000 | tail -n +2 > "$OUTPUT/output5"
-
 test() {
     CASE=$1
     EXPECTED="$CORRECT/test$CASE"
@@ -38,9 +32,18 @@ test() {
     fi
 }
 
+$KMEANS -f $INPUT1 -k 2 -i 100 | tail -n +2 > "$OUTPUT/output1"
 test 1
+
+$KMEANS -f $INPUT2 -k 3 -i 100 | tail -n +2 > "$OUTPUT/output2"
 test 2
+
+$KMEANS -f $INPUT3 -k 5 -i 100 | tail -n +2 > "$OUTPUT/output3"
 test 3
+
+$KMEANS -f $INPUT4 -k 8 -i 10000 | tail -n +2 > "$OUTPUT/output4"
 test 4
+
+$KMEANS -f $INPUT5 -k 10 -i 10000 | tail -n +2 > "$OUTPUT/output5"
 test 5
 

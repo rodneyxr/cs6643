@@ -14,13 +14,6 @@
 
 #include "k_means.h"
 
-double distance(const struct point p, const struct point u)
-{
-    double dx = p.x - u.x;
-    double dy = p.y - u.y;
-    return dx * dx + dy * dy;
-}
-
 /*
  * k_means: k_means clustering algorithm implementation.
  *
@@ -44,7 +37,7 @@ void k_means(struct point p[MAX_POINTS],
     int j; /* counter for random generator loop */
     int c_iter;
     int c_cluster;
-    int c_point
+    int c_point;
 
     /* randomly initialized the centers */
     /* Note: DO NOT CHANGE THIS RANDOM GENERATOR! */
@@ -62,16 +55,19 @@ void k_means(struct point p[MAX_POINTS],
 	 */
     for (c_iter = 0; c_iter < iters; c_iter++)
     {
-
         /* find the nearest center to each point */
+        #pragma omp parallel for private(c_cluster)
         for (c_point = 0; c_point < m; c_point++)
         {
             double min_dist = DBL_MAX;
+            struct point p1 = p[c_point];
 
             /* find the cluster that the point belongs to */
             for (c_cluster = 0; c_cluster < k; c_cluster++)
             {
-                double dist = distance(p[c_point], u[c_cluster]);
+                double dx = p1.x - u[c_cluster].x;
+                double dy = p1.y - u[c_cluster].y;
+                double dist = dx * dx + dy * dy;
                 if (dist < min_dist)
                 {
                     /* Set the new minimum distance and assign the point to the current cluster */
@@ -82,11 +78,13 @@ void k_means(struct point p[MAX_POINTS],
         }
 
         /* update the center for each cluster */
+        #pragma omp parallel for private(c_point)
         for (c_cluster = 0; c_cluster < k; c_cluster++)
         {
             double sumx = 0;
             double sumy = 0;
             int cluster_size = 0;
+
             for (c_point = 0; c_point < m; c_point++)
             {
                 if (c[c_point] == c_cluster)

@@ -1,0 +1,52 @@
+#!/bin/sh
+ROOT=$(cd .. && pwd)
+KMEANS=$ROOT/k_means
+DATA=$ROOT/data
+TEST=$(pwd)
+
+INPUT1=$DATA/example1_k2_m10.txt
+INPUT2=$DATA/example2_k3_m30.txt
+INPUT3=$DATA/example3_k5_m500.txt
+INPUT4=$DATA/example4_k8_m10000.txt
+INPUT5=$DATA/example5_k10_m10000.txt
+
+OUTPUT=$TEST/output
+CORRECT=$TEST/correct
+
+cd $ROOT
+make
+
+test() {
+    CASE=$1
+    EXPECTED="$CORRECT/test${CASE}_sort"
+    ACTUAL="$OUTPUT/output$CASE"
+    sort $ACTUAL > "${ACTUAL}_sort"
+    ACTUAL="${ACTUAL}_sort"
+    RESULT=$(diff $EXPECTED $ACTUAL)
+
+    if [ -z "$RESULT" ]
+    then
+        echo "*** TEST$CASE PASSED ***"
+    else
+        echo "*** TEST$CASE FAILED ***"
+        echo $RESULT | sed "s;\(<\|>\|---\);\n\1;g" | tail -n +2
+        echo ""
+    fi
+}
+
+mkdir -p $OUTPUT
+$KMEANS -f $INPUT1 -k 2 -i 100 -t 1 | tail -n +2 > "$OUTPUT/output1"
+test 1
+
+$KMEANS -f $INPUT2 -k 3 -i 100 -t 1 | tail -n +2 > "$OUTPUT/output2"
+test 2
+
+$KMEANS -f $INPUT3 -k 5 -i 100 -t 1 | tail -n +2 > "$OUTPUT/output3"
+test 3
+
+$KMEANS -f $INPUT4 -k 8 -i 10000 -t 1 | tail -n +2 > "$OUTPUT/output4"
+test 4
+
+$KMEANS -f $INPUT5 -k 10 -i 10000 -t 1 | tail -n +2 > "$OUTPUT/output5"
+test 5
+

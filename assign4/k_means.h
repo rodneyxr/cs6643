@@ -11,6 +11,8 @@
 #ifndef __CS4823_ASSIGNMENT_4__
 #define __CS4823_ASSIGNMENT_4__
 
+#include <pthread.h>
+
 #define MAX_POINTS 32768
 #define MAX_CENTERS 16
 
@@ -40,6 +42,15 @@ struct point random_center(struct point p[]);
 /*
  * TO STUDENTS: Add necessary data structures here
  */
-
+struct k_params {
+    int iters;
+	int m; 			/* number of data points in p[] */
+	int m_decomp; 	/* number of p[] assigned */
+	int m_start; 	/* starting index in p[] */
+	int k; 			/* number of clusters to find */
+	int k_decomp; 	/* number of c[] assigned */
+	int k_start; 	/* cluster to start on */
+    pthread_barrier_t* barrier;
+};
 
 #endif

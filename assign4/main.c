@@ -110,15 +110,37 @@ int main(int argc, char *argv[])
 		u[j] = random_center(p);
 
 	/* do K-Means */
+    pthread_t threads[thread_cnt];
+    pthread_barrier_t barrier;
+	struct k_params params[thread_cnt];
+    pthread_barrier_init(&barrier, NULL, thread_cnt);
 	for(i = 0; i < thread_cnt; i++){
 		/*
 		 * TO STUDENTS: create threads and pass necessary parameters here
 		 */
+		params[i].iters = iters;
+		params[i].m = m;
+		params[i].k = k;
+		params[i].m_decomp = m / thread_cnt;
+		params[i].k_decomp = k / thread_cnt;
+		params[i].m_start = params[i].m_decomp * i;
+		params[i].k_start = params[i].k_decomp * i;
+        params[i].barrier = &barrier;
+		if (i == thread_cnt - 1) {
+			params[i].m_decomp += m % thread_cnt;
+			params[i].k_decomp += k % thread_cnt;
+		}
+		
+        pthread_create(&threads[i], NULL, k_means, &params[i]);
 	}
 
 	/*
 	 * TO STUDENTS: add code to stop main thread from quitting 
-	 */	
+	 */
+	for(i = 0; i < thread_cnt; i++) {
+		pthread_join(threads[i], NULL);
+	}
+    pthread_barrier_destroy(&barrier);
 
 	/* output centers and cluster assignment */
 	printf("centers found:\n");

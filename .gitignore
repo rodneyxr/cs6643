@@ -1,2 +1,3 @@
 *.o
 k_means
+**/output

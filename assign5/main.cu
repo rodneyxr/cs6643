@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	/* output centers and cluster assignment */
 	printf("centers found:\n");
 	for(j = 0; j < k; j++)
-		printf("%lf, %lf\n", u[j].x, u[j].y);
+		printf("%.2lf, %.2lf\n", u[j].x, u[j].y);
 		    
 
 	return 0;

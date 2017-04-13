@@ -21,16 +21,34 @@
 #include <math.h>
 #include "k_means.h"
 
-__global__ void assign_points_to_clusters(struct point *p, struct point *u, int *c, int k, int m) {
-	__shared__ int atomic_c_point;
+struct params {
+	int work_m;
+	int work_k;
+	int k;
+	int m;
+};
+
+__device__ static int counter;
+
+__device__ struct point random_center(struct point *p, int m) {
+	int idx = atomicAdd(&counter, 1)%m;
+	return p[idx];
+}
+
+__global__ void assign_points_to_clusters(struct point *p, struct point *u, int *c, struct params* params) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	int k = params->k;
+	int m = params->m;
+	int p_start = index * params->work_m;
+	int p_end = p_start + params->work_m;
+	if (p_end >= m)
+		p_end = m;
+
 	int c_point;
 	int c_cluster;
-	if (threadIdx.x == 0)
-		atomic_c_point = -1;
-	__syncthreads();
 
 	/* find the nearest center to each point */
-	for (c_point = atomicAdd(&atomic_c_point, 1); c_point < m; c_point = atomicAdd(&atomic_c_point, 1))
+	for (c_point = p_start; c_point < p_end; c_point++)
 	{
 		double min_dist = DBL_MAX;
 		struct point p1 = p[c_point];
@@ -52,18 +70,20 @@ __global__ void assign_points_to_clusters(struct point *p, struct point *u, int 
 	return;
 }
 
-__global__ void update_centers(struct point *p, struct point *u, int* c, int k, int m) {
-	__shared__ int atomic_c_cluster;
-	__shared__ int counter;
+__global__ void update_centers(struct point *p, struct point *u, int* c, struct params *params) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	int k = params->k;
+	int m = params->m;
+	int k_start = index * params->work_k;
+	int k_end = k_start + params->work_k;
+	if (k_end >= k)
+		k_end = k;
+
 	int c_cluster;
 	int c_point;
-	if (threadIdx.x == 0) {
-		atomic_c_cluster = -1;
-	}
-	__syncthreads();
 
 	/* update the center for each cluster */
-	for (c_cluster = atomicAdd(&atomic_c_cluster, 1); c_cluster < k; c_cluster = atomicAdd(&atomic_c_cluster, 1))
+	for (c_cluster = k_start; c_cluster < k_end; c_cluster++)
 	{
 		double sumx = 0;
 		double sumy = 0;
@@ -75,7 +95,7 @@ __global__ void update_centers(struct point *p, struct point *u, int* c, int k, 
 			{
 				sumx += p[c_point].x;
 				sumy += p[c_point].y;
-				cluster_size++;
+				cluster_size += 1;
 			}
 		}
 
@@ -86,8 +106,7 @@ __global__ void update_centers(struct point *p, struct point *u, int* c, int k, 
 		}
 		else
 		{
-			int idx = atomicAdd(&counter, 1)%m;
-			u[c_cluster] = p[idx];
+			u[c_cluster] = random_center(p, m);
 		}
 	}
 	return;
@@ -108,8 +127,8 @@ __global__ void update_centers(struct point *p, struct point *u, int* c, int k, 
  *     struct point u[]: array of cluster centers
  *     int c[]         : cluster id for each data points
  */
-void k_means(struct point p[MAX_POINTS], 
-	     int m, 
+void k_means(struct point p[MAX_POINTS],
+	     int m,
 	     int k,
 	     int iters,
 	     struct point u[MAX_CENTERS],
@@ -123,10 +142,12 @@ void k_means(struct point p[MAX_POINTS],
 	struct point 	*d_p;		/* device points; size(m)*/
 	struct point 	*d_u; 		/* device cluster centers; size(k) */
 	int 			*d_c;		/* cluster id for each point; size(m) */
+	struct params 	*d_params;	/* parameters to tell how much work to do */
 	size_t size_p = sizeof(struct point) * m;
 	size_t size_u = sizeof(struct point) * k;
 	size_t size_c = sizeof(int) * m;
-	
+	size_t size_params = sizeof(struct params);
+
 	/* randomly initialized the centers */
 	for(j = 0; j < k; j++)
 		u[j] = random_center(p);
@@ -135,16 +156,24 @@ void k_means(struct point p[MAX_POINTS],
 	cudaMalloc((void **)&d_p, size_p);
 	cudaMalloc((void **)&d_u, size_u);
 	cudaMalloc((void **)&d_c, size_c);
+	cudaMalloc((void **)&d_params, size_params);
+
+	struct params params;
+	params.work_m = ceil((float)m / (block_cnt * threads_per_block));
+	params.work_k = ceil((float)k / (block_cnt * threads_per_block));
+	params.k = k;
+	params.m = m;
 
 	/* Copy input from host to device */
 	cudaMemcpy(d_p, p, size_p, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_u, u, size_u, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_c, c, size_c, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_params, &params, size_params, cudaMemcpyHostToDevice);
 
 	for (c_iter = 0; c_iter < iters; c_iter++) {
 		/* block_cnt and threads_per_block */
-		assign_points_to_clusters<<<block_cnt, threads_per_block>>>(d_p, d_u, d_c, k, m);
-		update_centers<<<block_cnt, threads_per_block>>>(d_p, d_u, d_c, k, m);
+		assign_points_to_clusters<<<block_cnt, threads_per_block>>>(d_p, d_u, d_c, d_params);
+		update_centers<<<block_cnt, threads_per_block>>>(d_p, d_u, d_c, d_params);
 	}
 
 	/* Copy results from device to host */
@@ -155,6 +184,8 @@ void k_means(struct point p[MAX_POINTS],
 	cudaFree(d_p);
 	cudaFree(d_u);
 	cudaFree(d_c);
+	cudaFree(d_params);
 
   	return;
 }
+

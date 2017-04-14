@@ -31,7 +31,7 @@ struct params {
 __device__ static int counter;
 
 __device__ struct point random_center(struct point *p, int m) {
-	int idx = atomicAdd(&counter, 1)%m;
+	int idx = (counter++) % m;
 	return p[idx];
 }
 

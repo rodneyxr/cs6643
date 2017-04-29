@@ -58,9 +58,11 @@ int main(int argc, char *argv[])
 	int c[MAX_POINTS]; /* cluster id for each point */
 
 	int proc_id;
+    int proc_cnt;
 
 	MPI_Init(&argc,&argv);
 	/* get process information */
+    MPI_Comm_size(MPI_COMM_WORLD, &proc_cnt);
 	MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
 
 	/* parse command arguments */
@@ -102,7 +104,7 @@ int main(int argc, char *argv[])
 	read_points_from_file(data_file, p, &m);
 
 	/* do K-Means */
-	k_means(p, m, k, iters, u, c);
+	k_means(p, m, k, iters, u, c, proc_cnt, proc_id);
 
 	/* output centers and cluster assignment */
 	if(proc_id == 0){
@@ -115,4 +117,3 @@ int main(int argc, char *argv[])
 	
 	return 0;
 }
-

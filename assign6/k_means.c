@@ -14,7 +14,6 @@
 
 #include "k_means.h"
 
-
 /*
  * k_means: k_means clustering algorithm implementation.
  *
@@ -28,23 +27,145 @@
  *     struct point u[]: array of cluster centers
  *     int c[]         : cluster id for each data points
  */
-void k_means(struct point p[MAX_POINTS], 
-	    int m, 
-	    int k,
-	    int iters,
-	    struct point u[MAX_CENTERS],
-	    int c[MAX_POINTS])
+void k_means(
+    struct point p[MAX_POINTS], 
+    int m, 
+    int k, 
+    int iters, 
+    struct point u[MAX_CENTERS], 
+    int c[MAX_POINTS], 
+    int proc_cnt, 
+    int proc_id) 
 {
-	/* TO STUDENTS: Please implement the MPI k_means here.
-	 *	
-	 * Note that, this time you will do the random initialization 
-	 * yourself. The random function's interface is the same as 
-	 * previous assignments. You can direct copy the old code here.
-	 * However, you need to make sure that all your processes have
-	 * the same initial centers (i.e., only initialized in one 
-	 * process and send the initial centers to other processes).
-	 */
-	
+    /* custom MPI data type */
+    MPI_Datatype MPI_POINT = create_mpi_point_type();
 
-	return;
+    /* integer array (of length group size) containing the number of elements that are to be received from each process */
+    int revcounts[proc_cnt];
+
+    /* integer array (of length group size). Entry i specifies the displacement (relative to recvbuf) at which to place the incoming data from process i */
+    int displs[proc_cnt];
+
+    /* compute work to do */
+    int m_decomp = m / proc_cnt;
+    int k_decomp = k / proc_cnt;
+    int m_start = m_decomp * proc_id;
+    int k_start = k_decomp * proc_id;
+    if (proc_id == proc_cnt - 1) {
+        m_decomp += m % proc_cnt;
+        k_decomp += k % proc_cnt;
+    }
+
+    int m_end = m_start + m_decomp; /* last point index assigned */
+	int k_end = k_start + k_decomp; /* last cluster index assigned */
+	int c_iter;
+	int c_cluster;
+	int c_point;
+    int i;
+
+    /* update revcounts and displs arrays for MPI_Allgatherv() */
+    for (i = 0; i < proc_cnt; i++) {
+        int work = m / proc_cnt;
+        revcounts[i] = work;
+        displs[i] = work * i;
+        if (i == proc_cnt) {
+            revcounts[i] += m % proc_cnt;
+        }
+    }
+
+    /* compute centers */
+    if(proc_id == 0){
+		for(i = 0; i < k; i++)
+			u[i] = random_center(p);
+	}
+
+	for (c_iter = 0; c_iter < iters; c_iter++)
+	{
+        /* sync all processes */
+        MPI_Bcast(u, k, MPI_POINT, 0, MPI_COMM_WORLD);
+
+        /* find the nearest center to each point */
+        for (c_point = m_start; c_point < m_end; c_point++)
+        {
+            double min_dist = DBL_MAX;
+            struct point p1 = p[c_point];
+
+            /* find the cluster that the point belongs to */
+            for (c_cluster = 0; c_cluster < k; c_cluster++)
+            {
+                double dx = p1.x - u[c_cluster].x;
+                double dy = p1.y - u[c_cluster].y;
+                double dist = dx * dx + dy * dy;
+                if (dist < min_dist)
+                {
+                    /* Set the new minimum distance and assign the point to the current cluster */
+                    min_dist = dist;
+                    c[c_point] = c_cluster;
+                }
+            }
+        }
+
+		/* sync all processes */
+        MPI_Allgatherv(p, m_decomp, MPI_POINT, p, revcounts, displs, MPI_POINT, MPI_COMM_WORLD);
+
+        /* update the center for each cluster */
+        for (c_cluster = k_start; c_cluster < k_end; c_cluster++)
+        {
+            double sumx = 0;
+            double sumy = 0;
+            int cluster_size = 0;
+
+            for (c_point = 0; c_point < m; c_point++)
+            {
+                if (c[c_point] == c_cluster)
+                {
+                    sumx += p[c_point].x;
+                    sumy += p[c_point].y;
+                    cluster_size++;
+                }
+            }
+
+            if (cluster_size > 0)
+            {
+                u[c_cluster].x = sumx / cluster_size;
+                u[c_cluster].y = sumy / cluster_size;
+            }
+            else
+            {
+                u[c_cluster] = random_center(p);
+            }
+        }
+    }
+
+    MPI_Bcast(u, k, MPI_POINT, 0, MPI_COMM_WORLD);
+    return;
+}
+
+/* create a MPI data type for struct item */
+MPI_Datatype create_mpi_point_type()
+{
+	int ret;
+	MPI_Datatype new_type;
+
+	int count = 2;
+	int block_length[2] = {1, 1}; // 2 block each has 1 and 1 variables
+	MPI_Aint offsets[2]; //array with beginning offset of each block;
+	MPI_Datatype types[2] = {MPI_DOUBLE, MPI_DOUBLE}; // old types of each block are double, double
+	MPI_Aint double_size;
+
+	/*
+	 * get the offsets for each block
+	 */
+	MPI_Type_extent(MPI_DOUBLE, &double_size); // get the size MPI_DOUBLE
+	offsets[0] = 0; // block 1 starts from the beginning
+	offsets[1] = double_size * 1; // block 2 starts after 1 double	
+
+	ret = MPI_Type_struct(count, block_length, offsets, types, &new_type);
+	if(ret != MPI_SUCCESS)
+		printf("Type construct error: %d\n", ret);
+	MPI_Type_commit(&new_type);
+	if(ret != MPI_SUCCESS)
+		printf("Type commit error: %d\n", ret);
+
+	return new_type;
 }

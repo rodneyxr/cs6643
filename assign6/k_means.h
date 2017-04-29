@@ -14,6 +14,8 @@
 #define MAX_POINTS 32768
 #define MAX_CENTERS 16
 
+#include <mpi.h>
+
 /*
  * data structure for holding a data point
  */
@@ -30,12 +32,13 @@ int read_points_from_file(char *data_file, struct point *pts, int *m);
 /*
  * find K_means 
  */
-void k_means(struct point p[], int m, int k, int iters, struct point u[],
-	    int c[]);
+void k_means(struct point p[], int m, int k, int iters, struct point u[], int c[], int proc_cnt, int proc_id);
 
 /*
  * return a (faked) random point
  */
 struct point random_center(struct point p[]);
+
+MPI_Datatype create_mpi_point_type();
 
 #endif

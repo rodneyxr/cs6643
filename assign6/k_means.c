@@ -41,23 +41,25 @@ void k_means(
     MPI_Datatype MPI_POINT = create_mpi_point_type();
 
     /* integer array (of length group size) containing the number of elements that are to be received from each process */
-    int revcounts[proc_cnt];
+    int point_revcounts[proc_cnt];
+    int cluster_revcounts[proc_cnt];
 
     /* integer array (of length group size). Entry i specifies the displacement (relative to recvbuf) at which to place the incoming data from process i */
-    int displs[proc_cnt];
+    int point_displs[proc_cnt];
+    int cluster_displs[proc_cnt];
 
     /* compute work to do */
-    int m_decomp = m / proc_cnt;
-    int k_decomp = k / proc_cnt;
-    int m_start = m_decomp * proc_id;
-    int k_start = k_decomp * proc_id;
-    if (proc_id == proc_cnt - 1) {
-        m_decomp += m % proc_cnt;
-        k_decomp += k % proc_cnt;
-    }
+    // int m_decomp = m / proc_cnt;
+    // int k_decomp = k / proc_cnt;
+    // int m_start = m_decomp * proc_id;
+    // int k_start = k_decomp * proc_id;
+    // if (proc_id == proc_cnt - 1) {
+    //     m_decomp += m % proc_cnt;
+    //     k_decomp += k % proc_cnt;
+    // }
 
-    int m_end = m_start + m_decomp; /* last point index assigned */
-	int k_end = k_start + k_decomp; /* last cluster index assigned */
+    // int m_end = m_start + m_decomp; /* last point index assigned */
+	// int k_end = k_start + k_decomp; /* last cluster index assigned */
 	int c_iter;
 	int c_cluster;
 	int c_point;
@@ -65,25 +67,43 @@ void k_means(
 
     /* update revcounts and displs arrays for MPI_Allgatherv() */
     for (i = 0; i < proc_cnt; i++) {
-        int work = m / proc_cnt;
-        revcounts[i] = work;
-        displs[i] = work * i;
-        if (i == proc_cnt) {
-            revcounts[i] += m % proc_cnt;
+        int point_work = m / proc_cnt;
+        int cluster_work = k / proc_cnt;
+        point_revcounts[i] = point_work;
+        cluster_revcounts[i] = cluster_work;
+        if (i == proc_cnt - 1) {
+            point_revcounts[i] = m - point_work * (proc_cnt - 1);
+            cluster_revcounts[i] = k - cluster_work * (proc_cnt - 1);
         }
     }
 
+    point_displs[0] = 0;
+    cluster_displs[0] = 0;
+    for (i = 1; i < proc_cnt; i++) {
+        point_displs[i] = point_displs[i-1] + point_revcounts[i-1];
+        cluster_displs[i] = cluster_displs[i-1] + cluster_revcounts[i-1];
+    }
+
+    int m_start = point_displs[proc_id];
+    int m_count = point_revcounts[proc_id];
+    int m_end = m_start + m_count;
+
+    int k_start = cluster_displs[proc_id];
+    int k_count = cluster_revcounts[proc_id];
+    int k_end = k_start + k_count;
+
     /* compute centers */
-    if(proc_id == 0){
+    if(proc_id == 0) {
 		for(i = 0; i < k; i++)
 			u[i] = random_center(p);
 	}
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Bcast(u, k, MPI_POINT, 0, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
 	for (c_iter = 0; c_iter < iters; c_iter++)
 	{
-        /* sync all processes */
-        MPI_Bcast(u, k, MPI_POINT, 0, MPI_COMM_WORLD);
-
         /* find the nearest center to each point */
         for (c_point = m_start; c_point < m_end; c_point++)
         {
@@ -106,7 +126,8 @@ void k_means(
         }
 
 		/* sync all processes */
-        MPI_Allgatherv(p, m_decomp, MPI_POINT, p, revcounts, displs, MPI_POINT, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, c, point_revcounts, point_displs, MPI_POINT, MPI_COMM_WORLD);
 
         /* update the center for each cluster */
         for (c_cluster = k_start; c_cluster < k_end; c_cluster++)
@@ -135,9 +156,13 @@ void k_means(
                 u[c_cluster] = random_center(p);
             }
         }
-    }
 
-    MPI_Bcast(u, k, MPI_POINT, 0, MPI_COMM_WORLD);
+        /* sync all processes */
+        MPI_Barrier(MPI_COMM_WORLD);
+        // MPI_Allgatherv(&u[k_start], k_decomp, MPI_POINT, &u[0], cluster_revcounts, cluster_displs, MPI_POINT, MPI_COMM_WORLD);
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, u, cluster_revcounts, cluster_displs, MPI_POINT, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
     return;
 }
 

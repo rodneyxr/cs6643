@@ -110,8 +110,7 @@ int main(int argc, char *argv[])
 	if(proc_id == 0){
 		printf("centers found:\n");
 		for(j = 0; j < k; j++)
-			// printf("%lf, %lf\n", u[j].x, u[j].y);
-			printf("%.2f, %.2f\n", u[j].x, u[j].y);
+			printf("%lf, %lf\n", u[j].x, u[j].y);
 	}
 
 	MPI_Finalize();

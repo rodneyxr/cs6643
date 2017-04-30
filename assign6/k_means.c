@@ -48,35 +48,23 @@ void k_means(
     int point_displs[proc_cnt];
     int cluster_displs[proc_cnt];
 
-    /* compute work to do */
-    // int m_decomp = m / proc_cnt;
-    // int k_decomp = k / proc_cnt;
-    // int m_start = m_decomp * proc_id;
-    // int k_start = k_decomp * proc_id;
-    // if (proc_id == proc_cnt - 1) {
-    //     m_decomp += m % proc_cnt;
-    //     k_decomp += k % proc_cnt;
-    // }
-
-    // int m_end = m_start + m_decomp; /* last point index assigned */
-	// int k_end = k_start + k_decomp; /* last cluster index assigned */
+    /* some counter variables */
 	int c_iter;
 	int c_cluster;
 	int c_point;
     int i;
 
-    /* update revcounts and displs arrays for MPI_Allgatherv() */
-    for (i = 0; i < proc_cnt; i++) {
-        int point_work = m / proc_cnt;
-        int cluster_work = k / proc_cnt;
+    /* update revcounts arrays for MPI_Allgatherv() */
+    int point_work = m / proc_cnt;
+    int cluster_work = k / proc_cnt;
+    for (i = 0; i < proc_cnt - 1; i++) {
         point_revcounts[i] = point_work;
         cluster_revcounts[i] = cluster_work;
-        if (i == proc_cnt - 1) {
-            point_revcounts[i] = m - point_work * (proc_cnt - 1);
-            cluster_revcounts[i] = k - cluster_work * (proc_cnt - 1);
-        }
     }
+    point_revcounts[proc_cnt - 1] = m - point_work * (proc_cnt - 1);
+    cluster_revcounts[proc_cnt - 1] = k - cluster_work * (proc_cnt - 1);
 
+    /* update revcounts arrays for MPI_Allgatherv() */
     point_displs[0] = 0;
     cluster_displs[0] = 0;
     for (i = 1; i < proc_cnt; i++) {
@@ -87,7 +75,6 @@ void k_means(
     int m_start = point_displs[proc_id];
     int m_count = point_revcounts[proc_id];
     int m_end = m_start + m_count;
-
     int k_start = cluster_displs[proc_id];
     int k_count = cluster_revcounts[proc_id];
     int k_end = k_start + k_count;
@@ -98,9 +85,7 @@ void k_means(
 			u[i] = random_center(p);
 	}
 
-    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(u, k, MPI_POINT, 0, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
 
 	for (c_iter = 0; c_iter < iters; c_iter++)
 	{
@@ -148,8 +133,8 @@ void k_means(
 
             if (cluster_size > 0)
             {
-                u[c_cluster].x = sumx / cluster_size;
-                u[c_cluster].y = sumy / cluster_size;
+                u[c_cluster].x = sumx / (double) cluster_size;
+                u[c_cluster].y = sumy / (double) cluster_size;
             }
             else
             {
@@ -159,10 +144,9 @@ void k_means(
 
         /* sync all processes */
         MPI_Barrier(MPI_COMM_WORLD);
-        // MPI_Allgatherv(&u[k_start], k_decomp, MPI_POINT, &u[0], cluster_revcounts, cluster_displs, MPI_POINT, MPI_COMM_WORLD);
         MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, u, cluster_revcounts, cluster_displs, MPI_POINT, MPI_COMM_WORLD);
-        MPI_Barrier(MPI_COMM_WORLD);
     }
+
     return;
 }
 
@@ -176,16 +160,17 @@ MPI_Datatype create_mpi_point_type()
 	int block_length[2] = {1, 1}; // 2 block each has 1 and 1 variables
 	MPI_Aint offsets[2]; //array with beginning offset of each block;
 	MPI_Datatype types[2] = {MPI_DOUBLE, MPI_DOUBLE}; // old types of each block are double, double
-	MPI_Aint double_size;
+    MPI_Aint lower_bound;
+    MPI_Aint extent;
 
 	/*
 	 * get the offsets for each block
 	 */
-	MPI_Type_extent(MPI_DOUBLE, &double_size); // get the size MPI_DOUBLE
+	MPI_Type_get_extent(MPI_DOUBLE, &lower_bound, &extent); // get the size MPI_DOUBLE
 	offsets[0] = 0; // block 1 starts from the beginning
-	offsets[1] = double_size * 1; // block 2 starts after 1 double	
+	offsets[1] = extent * 1; // block 2 starts after 1 double	
 
-	ret = MPI_Type_struct(count, block_length, offsets, types, &new_type);
+	ret = MPI_Type_create_struct(count, block_length, offsets, types, &new_type);
 	if(ret != MPI_SUCCESS)
 		printf("Type construct error: %d\n", ret);
 	MPI_Type_commit(&new_type);

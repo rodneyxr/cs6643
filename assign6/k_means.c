@@ -112,7 +112,7 @@ void k_means(
 
 		/* sync all processes */
         MPI_Barrier(MPI_COMM_WORLD);
-        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, c, point_revcounts, point_displs, MPI_POINT, MPI_COMM_WORLD);
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, c, point_revcounts, point_displs, MPI_INT, MPI_COMM_WORLD);
 
         /* update the center for each cluster */
         for (c_cluster = k_start; c_cluster < k_end; c_cluster++)
